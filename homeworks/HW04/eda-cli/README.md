@@ -57,28 +57,9 @@ uv run eda-cli report data/example.csv --out-dir reports
 ```bash
 uv run pytest -q
 ```
-# eda-cli
+## HTTP API (HW04)
 
-Mini EDA tool with CLI interface.
-
-## Commands
-
-- `eda-cli overview <csv>` — quick quality flags
-- `eda-cli report <csv> [OPTIONS]` — full markdown report with plots
-
-## New `report` options
-
-- `--max-hist-columns INT`: limit number of histograms (default: 5)
-- `--top-k-categories INT`: top categories per bar plot (default: 10)
-- `--title TEXT`: report title (default: "EDA Report")
-- `--min-missing-share FLOAT`: threshold for missing-value warnings (default: 0.1)
-
-## Example
+Запуск:
 
 ```bash
-uv run eda-cli report data/example.csv \
-  --out-dir my_report \
-  --max-hist-columns 3 \
-  --top-k-categories 5 \
-  --title "My Custom EDA" \
-  --min-missing-share 0.2
+uv run uvicorn eda_cli.api:app --reload --port 8000
