@@ -62,4 +62,3 @@ async def quality_flags_from_csv(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail=f"CSV parsing error: {str(e)}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal error: {str(e)}")
-    
