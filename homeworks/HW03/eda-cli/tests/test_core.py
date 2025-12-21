@@ -60,3 +60,59 @@ def test_correlation_and_top_categories():
     assert "value" in city_table.columns
     assert len(city_table) <= 2
 
+import pandas as pd
+from eda_cli.core import compute_quality_flags
+
+
+def test_constant_columns_flag():
+    df = pd.DataFrame({"A": [1, 1, 1], "B": [2, 3, 4]})
+    flags = compute_quality_flags(df)
+    assert flags["has_constant_columns"] is True
+
+
+def test_no_constant_columns():
+    df = pd.DataFrame({"X": [1, 2, 3], "Y": ["a", "b", "c"]})
+    flags = compute_quality_flags(df)
+    assert flags["has_constant_columns"] is False
+
+
+def test_high_cardinality_categorical():
+    df = pd.DataFrame({"cat": [f"cat_{i}" for i in range(100)]})
+    flags = compute_quality_flags(df, max_cardinality_threshold=50)
+    assert flags["has_high_cardinality_categoricals"] is True
+
+
+def test_no_high_cardinality():
+    df = pd.DataFrame({"cat": ["A", "B", "A"]})
+    flags = compute_quality_flags(df, max_cardinality_threshold=10)
+    assert flags["has_high_cardinality_categoricals"] is False
+
+
+def test_suspicious_id_duplicates():
+    df = pd.DataFrame({"user_id": [1, 2, 2, 4]})
+    flags = compute_quality_flags(df)
+    assert flags["has_suspicious_id_duplicates"] is True
+
+
+def test_no_id_duplicates():
+    df = pd.DataFrame({"order_id": [1, 2, 3, 4]})
+    flags = compute_quality_flags(df)
+    assert flags["has_suspicious_id_duplicates"] is False
+
+
+def test_many_zero_values():
+    df = pd.DataFrame({"mostly_zeros": [0, 0, 0, 0, 0, 1]})
+    flags = compute_quality_flags(df)
+    assert flags["has_many_zero_values"] is True
+
+
+def test_missing_table_and_quality_flags():
+    """Исправленный тест: работает с pd.DataFrame"""
+    df = pd.DataFrame({
+        "age": [25, None, 30, 35],
+        "city": ["Moscow", "London", None, "Berlin"],
+        "height": [175, 180, 178, 182]
+    })
+    flags = compute_quality_flags(df)
+    assert flags["has_missing"] is True
+   
