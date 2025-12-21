@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, asdict
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Sequence
 
 import pandas as pd
 from pandas.api import types as ptypes
@@ -44,6 +44,15 @@ def summarize_dataset(
     df: pd.DataFrame,
     example_values_per_column: int = 3,
 ) -> DatasetSummary:
+    """
+    Полный обзор датасета по колонкам:
+    - количество строк/столбцов;
+    - типы;
+    - пропуски;
+    - количество уникальных;
+    - несколько примерных значений;
+    - базовые числовые статистики (для numeric).
+    """
     n_rows, n_cols = df.shape
     columns: List[ColumnSummary] = []
 
@@ -56,6 +65,7 @@ def summarize_dataset(
         missing_share = float(missing / n_rows) if n_rows > 0 else 0.0
         unique = int(s.nunique(dropna=True))
 
+        # Примерные значения выводим как строки
         examples = (
             s.dropna().astype(str).unique()[:example_values_per_column].tolist()
             if non_null > 0
@@ -95,6 +105,9 @@ def summarize_dataset(
 
 
 def missing_table(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Таблица пропусков по колонкам: count/share.
+    """
     if df.empty:
         return pd.DataFrame(columns=["missing_count", "missing_share"])
 
@@ -113,6 +126,9 @@ def missing_table(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def correlation_matrix(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Корреляция Пирсона для числовых колонок.
+    """
     numeric_df = df.select_dtypes(include="number")
     if numeric_df.empty:
         return pd.DataFrame()
@@ -124,6 +140,10 @@ def top_categories(
     max_columns: int = 5,
     top_k: int = 5,
 ) -> Dict[str, pd.DataFrame]:
+    """
+    Для категориальных/строковых колонок считает top-k значений.
+    Возвращает словарь: колонка -> DataFrame со столбцами value/count/share.
+    """
     result: Dict[str, pd.DataFrame] = {}
     candidate_cols: List[str] = []
 
@@ -151,6 +171,12 @@ def top_categories(
 
 
 def compute_quality_flags(summary: DatasetSummary, missing_df: pd.DataFrame) -> Dict[str, Any]:
+    """
+    Простейшие эвристики «качества» данных:
+    - слишком много пропусков;
+    - подозрительно мало строк;
+    и т.п.
+    """
     flags: Dict[str, Any] = {}
     flags["too_few_rows"] = summary.n_rows < 100
     flags["too_many_columns"] = summary.n_cols > 100
@@ -159,25 +185,12 @@ def compute_quality_flags(summary: DatasetSummary, missing_df: pd.DataFrame) -> 
     flags["max_missing_share"] = max_missing_share
     flags["too_many_missing"] = max_missing_share > 0.5
 
-    # === НОВЫЕ ЭВРИСТИКИ ===
-    flags["has_constant_columns"] = any(col.unique <= 1 for col in summary.columns)
-
-    high_card_cols = [
-        col.name for col in summary.columns
-        if not col.is_numeric and col.unique > 100
-    ]
-    flags["has_high_cardinality_categoricals"] = len(high_card_cols) > 0
-
-    # Обновлённый скор качества
+    # Простейший «скор» качества
     score = 1.0
-    score -= max_missing_share
+    score -= max_missing_share  # чем больше пропусков, тем хуже
     if summary.n_rows < 100:
         score -= 0.2
     if summary.n_cols > 100:
-        score -= 0.1
-    if flags["has_constant_columns"]:
-        score -= 0.1
-    if flags["has_high_cardinality_categoricals"]:
         score -= 0.1
 
     score = max(0.0, min(1.0, score))
@@ -187,6 +200,9 @@ def compute_quality_flags(summary: DatasetSummary, missing_df: pd.DataFrame) -> 
 
 
 def flatten_summary_for_print(summary: DatasetSummary) -> pd.DataFrame:
+    """
+    Превращает DatasetSummary в табличку для более удобного вывода.
+    """
     rows: List[Dict[str, Any]] = []
     for col in summary.columns:
         rows.append(
@@ -205,3 +221,67 @@ def flatten_summary_for_print(summary: DatasetSummary) -> pd.DataFrame:
             }
         )
     return pd.DataFrame(rows)
+
+# src/eda_cli/core.py
+
+import pandas as pd
+
+def compute_quality_flags(df: pd.DataFrame, max_cardinality_threshold: int = 50) -> dict:
+    """Вычисляет флаги качества данных."""
+    n_rows, n_cols = df.shape
+
+    # Оригинальные эвристики (пример)
+    missing_share = df.isnull().mean().max()
+    has_missing = missing_share > 0
+
+    # НОВЫЕ ЭВРИСТИКИ:
+
+    # 1. Есть ли константные колонки?
+    has_constant_columns = (df.nunique() == 1).any()
+
+    # 2. Есть ли категориальные колонки с высокой кардинальностью?
+    # Предполагаем: только object/dtype == 'category'
+    categorical_cols = df.select_dtypes(include=['object', 'category']).columns
+    has_high_cardinality_categoricals = False
+    if len(categorical_cols) > 0:
+        max_unique = df[categorical_cols].nunique().max()
+        has_high_cardinality_categoricals = max_unique > max_cardinality_threshold
+
+    # 3. Дубликаты в потенциальных ID-колонках (если есть колонки с 'id' в названии)
+    has_suspicious_id_duplicates = False
+    id_cols = [col for col in df.columns if 'id' in col.lower()]
+    for col in id_cols:
+        if df[col].duplicated().any():
+            has_suspicious_id_duplicates = True
+            break
+
+    # 4. Много ли нулей в числовых колонках? (более 80%)
+    numeric_cols = df.select_dtypes(include='number').columns
+    has_many_zero_values = False
+    if len(numeric_cols) > 0:
+        zero_share = (df[numeric_cols] == 0).mean().max()
+        has_many_zero_values = zero_share > 0.8
+
+    # Итоговый словарь
+    quality_flags = {
+        "has_missing": bool(has_missing),
+        "missing_share": float(missing_share),
+        "has_constant_columns": bool(has_constant_columns),
+        "has_high_cardinality_categoricals": bool(has_high_cardinality_categoricals),
+        "has_suspicious_id_duplicates": bool(has_suspicious_id_duplicates),
+        "has_many_zero_values": bool(has_many_zero_values),
+    }
+
+    # Опционально: обновить quality_score
+    problematic_flags = sum([
+        quality_flags["has_missing"],
+        quality_flags["has_constant_columns"],
+        quality_flags["has_high_cardinality_categoricals"],
+        quality_flags["has_suspicious_id_duplicates"],
+        quality_flags["has_many_zero_values"],
+    ])
+    quality_score = max(0.0, 1.0 - problematic_flags / len(quality_flags))
+
+    quality_flags["quality_score"] = quality_score
+
+    return quality_flags
