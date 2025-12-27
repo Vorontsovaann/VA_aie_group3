@@ -63,6 +63,14 @@ uv run pytest -q
 - `has_all_missing_columns`
 - `too_few_rows`, `too_many_missing` и др.
 
+Пример запроса:
+```bash
+curl -X 'POST' \
+  'http://localhost:8000/quality-flags-from-csv' \
+  -H 'accept: application/json' \
+  -H 'Content-Type: multipart/form-data' \
+  -F 'file=@example.csv;type=application/vnd.ms-excel'
+
 Пример ответа:
 ```json
 {
