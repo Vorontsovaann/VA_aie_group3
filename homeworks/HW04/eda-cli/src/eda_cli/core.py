@@ -175,9 +175,13 @@ def compute_quality_flags(summary: DatasetSummary, missing_df: pd.DataFrame) -> 
     Простейшие эвристики «качества» данных:
     - слишком много пропусков;
     - подозрительно мало строк;
+    - константные колонки;
+    - полностью пустые колонки;
     и т.п.
     """
     flags: Dict[str, Any] = {}
+
+    # Существующие флаги
     flags["too_few_rows"] = summary.n_rows < 100
     flags["too_many_columns"] = summary.n_cols > 100
 
@@ -185,13 +189,29 @@ def compute_quality_flags(summary: DatasetSummary, missing_df: pd.DataFrame) -> 
     flags["max_missing_share"] = max_missing_share
     flags["too_many_missing"] = max_missing_share > 0.5
 
-    # Простейший «скор» качества
+    # --- НОВЫЕ ЭВРИСТИКИ ---
+
+    # 1. Проверка на константные колонки (уникальное значение == 1 и есть хотя бы одно ненулевое)
+    has_constant = any(
+        col.unique == 1 and col.non_null > 0 for col in summary.columns
+    )
+    flags["has_constant_columns"] = has_constant
+
+    # 2. Проверка на полностью пустые колонки
+    has_all_missing = any(col.missing_share == 1.0 for col in summary.columns)
+    flags["has_all_missing_columns"] = has_all_missing
+
+    # --- Обновлённый quality_score ---
     score = 1.0
-    score -= max_missing_share  # чем больше пропусков, тем хуже
+    score -= max_missing_share  # штраф за пропуски
     if summary.n_rows < 100:
         score -= 0.2
     if summary.n_cols > 100:
         score -= 0.1
+    if has_constant:
+        score -= 0.1  # константная колонка — потенциально бесполезна
+    if has_all_missing:
+        score -= 0.15  # полностью пустая колонка — явно плохо
 
     score = max(0.0, min(1.0, score))
     flags["quality_score"] = score
@@ -221,67 +241,3 @@ def flatten_summary_for_print(summary: DatasetSummary) -> pd.DataFrame:
             }
         )
     return pd.DataFrame(rows)
-
-# src/eda_cli/core.py
-
-import pandas as pd
-
-def compute_quality_flags(df: pd.DataFrame, max_cardinality_threshold: int = 50) -> dict:
-    """Вычисляет флаги качества данных."""
-    n_rows, n_cols = df.shape
-
-    # Оригинальные эвристики (пример)
-    missing_share = df.isnull().mean().max()
-    has_missing = missing_share > 0
-
-    # НОВЫЕ ЭВРИСТИКИ:
-
-    # 1. Есть ли константные колонки?
-    has_constant_columns = (df.nunique() == 1).any()
-
-    # 2. Есть ли категориальные колонки с высокой кардинальностью?
-    # Предполагаем: только object/dtype == 'category'
-    categorical_cols = df.select_dtypes(include=['object', 'category']).columns
-    has_high_cardinality_categoricals = False
-    if len(categorical_cols) > 0:
-        max_unique = df[categorical_cols].nunique().max()
-        has_high_cardinality_categoricals = max_unique > max_cardinality_threshold
-
-    # 3. Дубликаты в потенциальных ID-колонках (если есть колонки с 'id' в названии)
-    has_suspicious_id_duplicates = False
-    id_cols = [col for col in df.columns if 'id' in col.lower()]
-    for col in id_cols:
-        if df[col].duplicated().any():
-            has_suspicious_id_duplicates = True
-            break
-
-    # 4. Много ли нулей в числовых колонках? (более 80%)
-    numeric_cols = df.select_dtypes(include='number').columns
-    has_many_zero_values = False
-    if len(numeric_cols) > 0:
-        zero_share = (df[numeric_cols] == 0).mean().max()
-        has_many_zero_values = zero_share > 0.8
-
-    # Итоговый словарь
-    quality_flags = {
-        "has_missing": bool(has_missing),
-        "missing_share": float(missing_share),
-        "has_constant_columns": bool(has_constant_columns),
-        "has_high_cardinality_categoricals": bool(has_high_cardinality_categoricals),
-        "has_suspicious_id_duplicates": bool(has_suspicious_id_duplicates),
-        "has_many_zero_values": bool(has_many_zero_values),
-    }
-
-    # Опционально: обновить quality_score
-    problematic_flags = sum([
-        quality_flags["has_missing"],
-        quality_flags["has_constant_columns"],
-        quality_flags["has_high_cardinality_categoricals"],
-        quality_flags["has_suspicious_id_duplicates"],
-        quality_flags["has_many_zero_values"],
-    ])
-    quality_score = max(0.0, 1.0 - problematic_flags / len(quality_flags))
-
-    quality_flags["quality_score"] = quality_score
-
-    return quality_flags

@@ -57,28 +57,21 @@ uv run eda-cli report data/example.csv --out-dir reports
 ```bash
 uv run pytest -q
 ```
-# eda-cli
+### `POST /quality-flags-from-csv`
+Возвращает **полный набор флагов качества данных**, включая новые эвристики из HW03:
+- `has_constant_columns`
+- `has_all_missing_columns`
+- `too_few_rows`, `too_many_missing` и др.
 
-Mini EDA tool with CLI interface.
-
-## Commands
-
-- `eda-cli overview <csv>` — quick quality flags
-- `eda-cli report <csv> [OPTIONS]` — full markdown report with plots
-
-## New `report` options
-
-- `--max-hist-columns INT`: limit number of histograms (default: 5)
-- `--top-k-categories INT`: top categories per bar plot (default: 10)
-- `--title TEXT`: report title (default: "EDA Report")
-- `--min-missing-share FLOAT`: threshold for missing-value warnings (default: 0.1)
-
-## Example
-
-```bash
-uv run eda-cli report data/example.csv \
-  --out-dir my_report \
-  --max-hist-columns 3 \
-  --top-k-categories 5 \
-  --title "My Custom EDA" \
-  --min-missing-share 0.2
+Пример ответа:
+```json
+{
+  "flags": {
+    "has_constant_columns": true,
+    "has_all_missing_columns": false,
+    "too_few_rows": false,
+    "quality_score": 0.75
+  },
+  "dataset_shape": {"n_rows": 1000, "n_cols": 10},
+  "quality_score": 0.75
+}

@@ -8,10 +8,6 @@ from pydantic import BaseModel, Field
 
 from .core import compute_quality_flags, missing_table, summarize_dataset
 
-# Если в вашем core.py DatasetSummary является Pydantic-моделью или dataclass,
-# и вы хотите использовать его тип в сигнатуре функции, раскомментируйте строку ниже.
-# from .core import DatasetSummary
-
 app = FastAPI(
     title="AIE Dataset Quality API",
     version="0.2.0",
@@ -82,6 +78,17 @@ class QualityResponse(BaseModel):
     )
 
 
+# ---------- Модель для дополнительного эндпоинта ----------
+
+
+class QualityFlagsResponse(BaseModel):
+    """Ответ с полным набором флагов качества."""
+
+    flags: dict[str, bool | float | int]
+    dataset_shape: dict[str, int]
+    quality_score: float = Field(ge=0.0, le=1.0)
+
+
 # ---------- Системный эндпоинт ----------
 
 
@@ -148,7 +155,7 @@ def quality(req: QualityRequest) -> QualityResponse:
         "no_categorical_columns": req.categorical_cols == 0,
     }
 
-    # Примитивный лог — на семинаре можно обсудить, как это превратить в нормальный logger
+    # Примитивный лог
     print(
         f"[quality] n_rows={req.n_rows} n_cols={req.n_cols} "
         f"max_missing_share={req.max_missing_share:.3f} "
@@ -186,12 +193,9 @@ async def quality_from_csv(file: UploadFile = File(...)) -> QualityResponse:
     start = perf_counter()
 
     if file.content_type not in ("text/csv", "application/vnd.ms-excel", "application/octet-stream"):
-        # content_type от браузера может быть разным, поэтому проверка мягкая
-        # но для демонстрации оставим простую ветку 400
         raise HTTPException(status_code=400, detail="Ожидается CSV-файл (content-type text/csv).")
 
     try:
-        # FastAPI даёт file.file как file-like объект, который можно читать pandas'ом
         df = pd.read_csv(file.file)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=400, detail=f"Не удалось прочитать CSV: {exc}")
@@ -199,12 +203,11 @@ async def quality_from_csv(file: UploadFile = File(...)) -> QualityResponse:
     if df.empty:
         raise HTTPException(status_code=400, detail="CSV-файл не содержит данных (пустой DataFrame).")
 
-    # Используем EDA-ядро из S03
+    # ИСПОЛЬЗУЕМ EDA-ЯДРО ИЗ HW03 — как требуется
     summary = summarize_dataset(df)
     missing_df = missing_table(df)
     flags_all = compute_quality_flags(summary, missing_df)
 
-    # Ожидаем, что compute_quality_flags вернёт quality_score в [0,1]
     score = float(flags_all.get("quality_score", 0.0))
     score = max(0.0, min(1.0, score))
     ok_for_model = score >= 0.7
@@ -216,15 +219,13 @@ async def quality_from_csv(file: UploadFile = File(...)) -> QualityResponse:
 
     latency_ms = (perf_counter() - start) * 1000.0
 
-    # Оставляем только булевы флаги для компактности
+    # Оставляем только булевы флаги для совместимости с QualityResponse.flags
     flags_bool: dict[str, bool] = {
         key: bool(value)
         for key, value in flags_all.items()
         if isinstance(value, bool)
     }
 
-    # Размеры датасета берём из summary (если там есть поля n_rows/n_cols),
-    # иначе — напрямую из DataFrame.
     try:
         n_rows = int(getattr(summary, "n_rows"))
         n_cols = int(getattr(summary, "n_cols"))
@@ -248,52 +249,45 @@ async def quality_from_csv(file: UploadFile = File(...)) -> QualityResponse:
     )
 
 
-# ---------- ДОПОЛНИТЕЛЬНЫЙ ЭНДПОИНТ ИЗ HW04 (ВАША ДОРАБОТКА) ----------
+# ---------- ДОПОЛНИТЕЛЬНЫЙ ЭНДПОИНТ (обязательно для HW04) ----------
+# Использует новые эвристики из HW03 и возвращает полные флаги
 
 
-@app.post("/summary-from-csv", tags=["eda"])
-async def summary_from_csv(file: UploadFile = File(...)) -> dict:
+@app.post(
+    "/quality-flags-from-csv",
+    response_model=QualityFlagsResponse,
+    tags=["eda"],
+    summary="Полные флаги качества данных по CSV (включая новые из HW03)",
+)
+async def quality_flags_from_csv(file: UploadFile = File(...)) -> QualityFlagsResponse:
     """
-    Возвращает статистическую сводку по загруженному CSV-файлу.
-    Это HTTP-аналог команды `eda-cli overview` из HW03.
-    Использует функцию `summarize_dataset` из ядра проекта.
-
-    Принимает:
-        - file: Загружаемый CSV-файл.
-
-    Возвращает:
-        - JSON с ключевыми метриками датасета (количество строк, колонок, типы признаков и т.д.).
+    Возвращает полный словарь флагов качества, включая новые эвристики из HW03:
+    - has_constant_columns
+    - has_all_missing_columns
+    и другие.
     """
-    # Проверка типа файла (мягкая)
+
     if file.content_type not in ("text/csv", "application/vnd.ms-excel", "application/octet-stream"):
         raise HTTPException(status_code=400, detail="Ожидается CSV-файл.")
 
     try:
-        # Чтение CSV в DataFrame
         df = pd.read_csv(file.file)
     except Exception as exc:
-        raise HTTPException(status_code=400, detail=f"Не удалось прочитать CSV: {str(exc)}")
+        raise HTTPException(status_code=400, detail=f"Не удалось прочитать CSV: {exc}")
 
     if df.empty:
         raise HTTPException(status_code=400, detail="CSV-файл пуст.")
 
-    try:
-        # Вызов основной функции из HW03
-        summary = summarize_dataset(df)
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Ошибка при генерации сводки: {str(exc)}")
+    # ИСПОЛЬЗУЕМ EDA-ЯДРО — как в HW03
+    summary = summarize_dataset(df)
+    missing_df = missing_table(df)
+    flags_all = compute_quality_flags(summary, missing_df)
 
-    # Преобразование сводки в JSON-сериализуемый словарь.
-    # Этот код предполагает, что `summary` - это объект (например, Pydantic-модель или dataclass),
-    # у которого есть атрибуты с простыми типами данных (int, float, list, dict).
-    # Если у вас в `summary` есть DataFrame'ы, их нужно пропустить или преобразовать.
-    summary_dict = {}
-    for attr_name in dir(summary):
-        if not attr_name.startswith("_"):  # Игнорируем приватные атрибуты
-            attr_value = getattr(summary, attr_name)
-            # Проверяем, что значение можно легко сериализовать в JSON
-            if isinstance(attr_value, (int, float, str, bool, list, dict)):
-                summary_dict[attr_name] = attr_value
-            # Если у вас есть, например, список имен колонок как атрибут, он тоже пройдет.
+    n_rows = getattr(summary, "n_rows", df.shape[0])
+    n_cols = getattr(summary, "n_cols", df.shape[1])
 
-    return summary_dict
+    return QualityFlagsResponse(
+        flags=flags_all,
+        dataset_shape={"n_rows": n_rows, "n_cols": n_cols},
+        quality_score=flags_all["quality_score"],
+    )
