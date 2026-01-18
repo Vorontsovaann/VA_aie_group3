@@ -1,0 +1,26 @@
+{
+  "ds1": {
+    "method": "DBSCAN",
+    "params": {
+      "eps": 0.2,
+      "min_samples": 15
+    },
+    "criterion": "silhouette"
+  },
+  "ds2": {
+    "method": "DBSCAN",
+    "params": {
+      "eps": 0.1,
+      "min_samples": 10
+    },
+    "criterion": "silhouette"
+  },
+  "ds3": {
+    "method": "DBSCAN",
+    "params": {
+      "eps": 0.1,
+      "min_samples": 10
+    },
+    "criterion": "silhouette"
+  }
+}
