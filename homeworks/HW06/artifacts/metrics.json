@@ -1,27 +1,32 @@
 {
     "Dummy": {
         "accuracy": 0.6767,
-        "f1": 0.0,
+        "balanced_accuracy": 0.5,
+        "f1_macro": 0.4036,
         "roc_auc": 0.5
     },
     "LogisticRegression": {
-        "accuracy": 0.8279,
-        "f1": 0.7085,
-        "roc_auc": 0.8747
+        "accuracy": 0.8054,
+        "balanced_accuracy": 0.799,
+        "f1_macro": 0.7861,
+        "roc_auc": 0.8763
     },
     "DecisionTree": {
         "accuracy": 0.8604,
-        "f1": 0.7646,
-        "roc_auc": 0.8843
+        "balanced_accuracy": 0.8323,
+        "f1_macro": 0.8378,
+        "roc_auc": 0.898
     },
     "RandomForest": {
-        "accuracy": 0.89,
-        "f1": 0.8076,
-        "roc_auc": 0.9436
+        "accuracy": 0.8904,
+        "balanced_accuracy": 0.8716,
+        "f1_macro": 0.874,
+        "roc_auc": 0.9445
     },
     "GradientBoosting": {
         "accuracy": 0.905,
-        "f1": 0.8425,
+        "balanced_accuracy": 0.874,
+        "f1_macro": 0.8873,
         "roc_auc": 0.9544
     }
 }
