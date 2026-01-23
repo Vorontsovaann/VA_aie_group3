@@ -12,7 +12,7 @@
       "min_samples_leaf": 2,
       "n_estimators": 100
     },
-    "best_cv_score": 0.9262482425768679
+    "best_cv_score": 0.9262490519055671
   },
   "HistGradientBoosting": {
     "best_params": {
