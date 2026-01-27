@@ -17,7 +17,7 @@
   "RandomForest": {
     "accuracy": 0.8916666666666667,
     "f1": 0.7580645161290323,
-    "roc_auc": 0.9267806574397912
+    "roc_auc": 0.926780059586086
   },
   "HistGradientBoosting": {
     "accuracy": 0.8991666666666667,
