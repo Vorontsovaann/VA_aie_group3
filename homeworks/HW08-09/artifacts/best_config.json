@@ -1,0 +1,16 @@
+{
+  "dataset": "CIFAR10",
+  "seed": 42,
+  "model_architecture": {
+    "hidden_sizes": [
+      256,
+      128,
+      64
+    ],
+    "use_batchnorm": true
+  },
+  "optimizer": "Adam",
+  "lr": 0.001,
+  "early_stopping_patience": 5,
+  "final_test_accuracy": 0.5032
+}
