@@ -1,0 +1,5 @@
+experiment_id,task,dataset,seed,window_size,model_summary,best_val_mae,best_val_rmse,best_val_mape,test_mae,test_rmse,test_mape,notes
+B1,forecasting,S12-hw-dataset,42,1,naive-last,6.4267,8.1096,4.5385,,,,baseline
+B2,forecasting,S12-hw-dataset,42,24,moving-average-24,13.2587,16.0804,9.431,,,,baseline
+B3,forecasting,S12-hw-dataset,42,1,Ridge+features,6.0517,7.3557,4.1668,,,,baseline
+R1,forecasting,S12-hw-dataset,42,24,GRU(64x2),17.0593,20.7058,10.514800071716309,17.0593,20.7058,10.5148,best_model
