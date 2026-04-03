@@ -1,5 +1,5 @@
-experiment_id,task,dataset,seed,window_size,model_summary,best_val_mae,best_val_rmse,best_val_mape,test_mae,test_rmse,test_mape,notes
-B1,forecasting,S12-hw-dataset,42,1,naive-last,6.4267,8.1096,4.5385,,,,baseline
-B2,forecasting,S12-hw-dataset,42,24,moving-average-24,13.2587,16.0804,9.431,,,,baseline
-B3,forecasting,S12-hw-dataset,42,1,Ridge+features,6.0517,7.3557,4.1668,,,,baseline
-R1,forecasting,S12-hw-dataset,42,24,GRU(64x2),17.0593,20.7058,10.514800071716309,17.0593,20.7058,10.5148,best_model
+experiment_id,task,dataset,seed,split_summary,window_size,horizon,model_summary,features_summary,scaler,optimizer,lr,epochs_trained,best_val_mae,best_val_rmse,best_val_mape,test_mae,test_rmse,test_mape,notes
+B1,forecast,S12-hw-dataset,42,70/15/15 temporal,1,1,naive-last,none,none,none,,0,20.395899053627762,24.44598092285841,12.885601877662225,23.68869085173502,27.897020410642398,14.472808292427647,baseline
+B2,forecast,S12-hw-dataset,42,70/15/15 temporal,1,1,moving-average,none,none,none,,0,14.766430824695803,17.706116089753866,9.899837485380976,15.874166291122123,19.116813756143706,10.009394170687107,baseline
+B3,forecast,S12-hw-dataset,42,70/15/15 temporal,1,1,Ridge(alpha=1.0),"lag_1,7,14,rolling_mean/std_7,calendar",StandardScaler,closed-form,,0,6.493606865788936,8.093669874167949,4.344385626908102,6.158392378457804,7.8179341450367374,3.9618401146381945,baseline
+R1,forecast,S12-hw-dataset,42,70/15/15 temporal,14,1,GRU(hidden=64),windowed raw target,StandardScaler,Adam,0.001,50,444.8956879163509,521.2973465298496,14.540041167011669,2339.4211224153437,2339.4844261900503,1527.6234089823183,deep learning
