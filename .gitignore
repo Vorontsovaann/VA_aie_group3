@@ -32,6 +32,7 @@ eggs/
 *.egg-info/
 .installed.cfg
 data/
+results_HW13/
 
 # Кеши и артефакты тестов
 .pytest_cache/
@@ -56,3 +57,7 @@ logs/
 *.tmp
 *.bak
 *.old
+*.safetensors
+*.pt
+*.pth
+*.bin
